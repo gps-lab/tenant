@@ -13,7 +13,6 @@ jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
-    environment: production
     
     env:
       ARM_CLIENT_ID: ${{ secrets.clientId }}
