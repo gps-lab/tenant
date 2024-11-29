@@ -1,0 +1,72 @@
+name: 'Setup Terraform State Storage'
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  setup-state-storage:
+    name: 'Setup State Storage'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: 'Azure Login'
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        enable-AzPSSession: false
+
+    - name: 'Setup Terraform'
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.7.0'
+        terraform_wrapper: false
+
+    - name: 'Check Existing State Storage'
+      working-directory: state-storage
+      run: |
+        # Initialize Terraform
+        terraform init
+
+        # Run terraform plan to check if resources exist
+        if terraform plan -detailed-exitcode -out=tfplan > plan_output.txt 2>&1; then
+          echo "State storage already exists and no changes needed"
+          echo "STATE_EXISTS=true" >> $GITHUB_ENV
+          cat plan_output.txt
+        elif [ $? -eq 2 ]; then
+          echo "Changes needed or resources don't exist"
+          echo "STATE_EXISTS=false" >> $GITHUB_ENV
+          cat plan_output.txt
+        else
+          echo "Error running Terraform plan"
+          cat plan_output.txt
+          exit 1
+        fi
+
+    - name: 'Apply Terraform'
+      if: env.STATE_EXISTS == 'false'
+      working-directory: state-storage
+      run: |
+        terraform apply tfplan
+        
+        # Save the backend configuration
+        terraform output -raw backend_config > backend.tf
+        echo "State storage has been created:"
+        echo "Storage Account: $(terraform output -raw storage_account_name)"
+        echo "Container: $(terraform output -raw container_name)"
+        echo "Resource Group: $(terraform output -raw resource_group_name)"
+
+    - name: 'Upload Backend Config'
+      if: env.STATE_EXISTS == 'false' && success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: backend-config
+        path: state-storage/backend.tf
+        retention-days: 7

@@ -1,0 +1,63 @@
+name: 'Azure Federated Credentials Setup'
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  setup:
+    name: 'Setup Federated Credentials'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: 'Azure CLI Login for Setup'
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+        auth-type: 'SERVICE_PRINCIPAL'
+        allow-no-subscriptions: true
+        enable-AzPSSession: false
+
+    - name: 'Setup Multiple Federated Credentials'
+      run: |
+        # Get the App ID using the correct app name
+        echo "Getting application ID..."
+        APP_ID=$(az ad app list --display-name "automate" --query '[0].id' -o tsv)
+        echo "Application ID: $APP_ID"
+        
+        # Delete existing federated credentials if they exist
+        echo "Removing existing federated credentials..."
+        existing_creds=$(az ad app federated-credential list --id "$APP_ID" --query "[].name" -o tsv)
+        for cred in $existing_creds; do
+          echo "Removing credential: $cred"
+          az ad app federated-credential delete --id "$APP_ID" --federated-credential-id "$cred"
+        done
+        
+        echo "Creating federated credentials for environment..."
+        az ad app federated-credential create \
+          --id "$APP_ID" \
+          --audiences "api://AzureADTokenExchange" \
+          --subject "repo:${{ github.repository }}:environment:production" \
+          --issuer "https://token.actions.githubusercontent.com" \
+          --name "github-actions-environment"
+        
+        echo "Creating federated credentials for main branch..."
+        az ad app federated-credential create \
+          --id "$APP_ID" \
+          --audiences "api://AzureADTokenExchange" \
+          --subject "repo:${{ github.repository }}:ref:refs/heads/main" \
+          --issuer "https://token.actions.githubusercontent.com" \
+          --name "github-actions-main"
+
+    - name: 'Verify Federated Credentials'
+      run: |
+        APP_ID=$(az ad app list --display-name "automate" --query '[0].id' -o tsv)
+        echo "Listing configured federated credentials:"
+        az ad app federated-credential list --id "$APP_ID" --query "[].{Name:name, Subject:subject, Issuer:issuer}" -o table

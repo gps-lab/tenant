@@ -1,0 +1,81 @@
+name: 'Terraform Destroy'
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: 'Type "DESTROY" to confirm'
+        required: true
+        type: string
+
+jobs:
+  terraform-destroy:
+    name: 'Terraform Destroy'
+    runs-on: ubuntu-latest
+    environment: 
+      name: production
+      url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    
+    # Add explicit condition to check confirmation
+    if: inputs.confirm_destroy == 'DESTROY'
+    
+    env:
+      ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+      ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+      ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+      ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: 'Azure Login'
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        enable-AzPSSession: false
+
+    - name: 'Setup Terraform'
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.7.0'
+
+    - name: 'Create Backend Configuration'
+      working-directory: ./terraform
+      run: |
+        cat > backend.tf << 'EOF'
+            terraform {
+            backend "azurerm" {
+                resource_group_name  = "terraform-state-rg"
+                storage_account_name = "tfstatemftfb413"
+                container_name       = "tfstate"
+                key                 = "terraform.tfstate"
+            }
+            }
+        EOF
+
+    - name: 'Terraform Init'
+      working-directory: ./terraform
+      run: terraform init
+
+    - name: 'Terraform Plan Destroy'
+      working-directory: ./terraform
+      run: |
+        echo "Planning destroy operation..."
+        terraform plan -destroy -out=destroyplan
+        echo "Review the destroy plan carefully"
+        terraform show destroyplan
+
+    - name: 'Terraform Destroy'
+      working-directory: ./terraform
+      run: |
+        echo "Starting destroy operation..."
+        terraform apply -auto-approve destroyplan
+        echo "Destroy completed"
+
+    - name: 'Verify Destruction'
+      working-directory: ./terraform
+      if: success()
+      run: |
+        echo "Verifying resources have been destroyed..."
+        terraform state list || echo "No resources found in state file"
