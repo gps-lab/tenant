@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
-      ARM_CLIENT_ID: ${{ secrets.org.CLIENTID }}
-      ARM_CLIENT_SECRET: ${{ secrets.org.CLIENTSECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.org.SUBSCRIPTIONID }}
-      ARM_TENANT_ID: ${{ secrets.org.TENANTID }}
+      ARM_CLIENT_ID: ${{ secrets.org.clientId }}
+      ARM_CLIENT_SECRET: ${{ secrets.org.clientSecret }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.org.subscriptionId }}
+      ARM_TENANT_ID: ${{ secrets.org.tenantId }}
 
     steps:
     - name: Checkout
@@ -27,7 +27,7 @@ jobs:
     - name: 'Azure Login'
       uses: azure/login@v1
       with:
-        creds: '{"clientId":"${{ secrets.org.CLIENTID }}","clientSecret":"${{ secrets.org.CLIENTSECRET }}","subscriptionId":"${{ secrets.org.SUBSCRIPTIONID }}","tenantId":"${{ secrets.org.TENANTID }}"}'
+        creds: '{"clientId":"${{ secrets.org.ARM_CLIENT_ID }}","clientSecret":"${{ secrets.org.clientSecret }}","subscriptionId":"${{ secrets.org.subscriptionId }}","tenantId":"${{ secrets.org.tenantId }}"}'
         enable-AzPSSession: false
         auth-type: SERVICE_PRINCIPAL
         environment: azurecloud
