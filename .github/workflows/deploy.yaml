@@ -3,7 +3,6 @@ name: Azure Login
 on:
   workflow_call:
 
-# Top level permissions
 permissions:
   id-token: write
   contents: read
@@ -15,36 +14,30 @@ jobs:
   azure-login:
     runs-on: ubuntu-latest
     environment: production
-    # Add job level permissions
-    permissions:
-      id-token: write
-      contents: read
-      actions: read
-      security-events: read
-      variables: read
     
     steps:
-      # First verify runner identity and permissions
-      - name: Check Runner Context
+      - name: Network Diagnostics
         run: |
-          echo "Runner context:"
-          echo "OS: ${{ runner.os }}"
-          echo "Workspace: ${{ runner.workspace }}"
-          echo "Tool cache: ${{ runner.tool_cache }}"
-          echo "Temp: ${{ runner.temp }}"
-
-      # Try accessing vars directly to debug
-      - name: Debug Variable Access
-        id: var_check
-        run: |
-          echo "Testing direct variable access..."
-          echo "AZURE_CLIENT_ID availability: ${{ vars.AZURE_CLIENT_ID != '' }}"
-          echo "AZURE_SUBSCRIPTION_ID availability: ${{ vars.AZURE_SUBSCRIPTION_ID != '' }}"
-          echo "AZURE_TENANT_ID availability: ${{ vars.AZURE_TENANT_ID != '' }}"
-          echo "AZURE_CLIENT_SECRET availability: ${{ secrets.AZURE_CLIENT_SECRET != '' }}"
+          echo "Testing connectivity to GitHub services..."
+          
+          # Test GitHub API connectivity
+          curl -Is https://api.github.com/meta | head -n 1 || echo "Cannot reach GitHub API"
+          
+          # Test connectivity to key GitHub domains
+          for domain in api.github.com github.com raw.githubusercontent.com; do
+            echo "Testing connection to $domain..."
+            nc -zv $domain 443 2>&1 || echo "Failed to connect to $domain"
+          done
+          
+          # Display current DNS settings
+          echo "DNS Settings:"
+          cat /etc/resolv.conf
+          
+          # Display route table
+          echo "Route table:"
+          ip route list
 
       - name: Validate Azure Credentials
-        shell: bash
         run: |
           echo "Checking CLIENTID..."
           if [[ -n "${{ vars.AZURE_CLIENT_ID }}" ]]; then
@@ -52,8 +45,6 @@ jobs:
             echo "client_id=${{ vars.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
           else
             echo "::error::CLIENTID is missing"
-            echo "Available variables:"
-            env | grep -i azure || true
             exit 1
           fi
 
