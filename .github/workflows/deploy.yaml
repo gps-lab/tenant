@@ -1,25 +1,63 @@
 name: Azure Login
 
 on:
-  workflow_call:  # Makes this workflow reusable
+  workflow_call:
 
 permissions:
-  id-token: write # Required for Azure login
-  contents: read  # Required for basic repository access
+  id-token: write
+  contents: read
 
 jobs:
   azure-login:
     runs-on: ubuntu-latest
-    environment: production  # Optional: specify deployment environment
-    
-    # Optional: Configure runner specifications
-    strategy:
-      matrix:
-        node-version: [18.x]  # Specify Node.js version if needed
-      fail-fast: false  # Continue with other jobs if one fails
+    environment: production
     
     steps:
+      - name: Validate Azure Credentials
+        env:
+          CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          echo "Checking CLIENTID..."
+          if [[ -n "$CLIENT_ID" ]]; then
+            echo "CLIENTID is present"
+            echo "client_id=$CLIENT_ID" >> $GITHUB_ENV
+          else
+            echo "::error::CLIENTID is missing"
+            exit 1
+          fi
+
+          echo "Checking CLIENTSECRET..."
+          if [[ -n "$CLIENT_SECRET" ]]; then
+            echo "CLIENTSECRET is present"
+            echo "client_secret=$CLIENT_SECRET" >> $GITHUB_ENV
+          else
+            echo "::error::CLIENTSECRET is missing"
+            exit 1
+          fi
+
+          echo "Checking SUBSCRIPTIONID..."
+          if [[ -n "$SUBSCRIPTION_ID" ]]; then
+            echo "SUBSCRIPTIONID is present"
+            echo "subscription_id=$SUBSCRIPTION_ID" >> $GITHUB_ENV
+          else
+            echo "::error::SUBSCRIPTIONID is missing"
+            exit 1
+          fi
+
+          echo "Checking TENANTID..."
+          if [[ -n "$TENANT_ID" ]]; then
+            echo "TENANTID is present"
+            echo "tenant_id=$TENANT_ID" >> $GITHUB_ENV
+          else
+            echo "::error::TENANTID is missing"
+            exit 1
+          fi
+
       - name: Azure Login
+        if: success()
         uses: azure/login@v1
         with:
           creds: '{"clientId":"${{ vars.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ vars.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ vars.AZURE_TENANT_ID }}"}'
