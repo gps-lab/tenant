@@ -14,13 +14,30 @@ jobs:
     name: 'Terraform'
     runs-on: ubuntu-latest
     
-    env:
-      ARM_CLIENT_ID: ${{ secrets.CLIENTID }}
-      ARM_CLIENT_SECRET: ${{ secrets.CLIENTSECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.SUBSCRIPTIONID }}
-      ARM_TENANT_ID: ${{ secrets.TENANTID }}
-
     steps:
+    - name: Check Secret Access
+      run: |
+        if [ ! -z "${{ secrets.CLIENTID }}" ]; then
+          echo "CLIENTID is set"
+        else
+          echo "CLIENTID is not set"
+        fi
+        if [ ! -z "${{ secrets.CLIENTSECRET }}" ]; then
+          echo "CLIENTSECRET is set"
+        else
+          echo "CLIENTSECRET is not set"
+        fi
+        if [ ! -z "${{ secrets.SUBSCRIPTIONID }}" ]; then
+          echo "SUBSCRIPTIONID is set"
+        else
+          echo "SUBSCRIPTIONID is not set"
+        fi
+        if [ ! -z "${{ secrets.TENANTID }}" ]; then
+          echo "TENANTID is set"
+        else
+          echo "TENANTID is not set"
+        fi
+
     - name: Checkout
       uses: actions/checkout@v4
 
@@ -95,7 +112,6 @@ jobs:
       run: |
         echo "Applying changes"
         terraform apply -auto-approve tfplan
-        # Optional: Verify state was created
     
     - name: 'Verify State'
       working-directory: ./terraform
