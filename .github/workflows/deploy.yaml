@@ -1,29 +1,25 @@
-name: 'Terraform Azure Deployment'
+name: Azure Login
 
 on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+  workflow_call:  # Makes this workflow reusable
 
 permissions:
-  contents: read
-  id-token: write
+  id-token: write # Required for Azure login
+  contents: read  # Required for basic repository access
 
 jobs:
-  terraform:
-    name: 'Terraform'
+  azure-login:
     runs-on: ubuntu-latest
+    environment: production  # Optional: specify deployment environment
+    
+    # Optional: Configure runner specifications
+    strategy:
+      matrix:
+        node-version: [18.x]  # Specify Node.js version if needed
+      fail-fast: false  # Continue with other jobs if one fails
     
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: 'Azure Login'
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-        enable-AzPSSession: false
-        auth-type: SERVICE_PRINCIPAL
-        environment: azurecloud
-        allow-no-subscriptions: false
-        audience: api://AzureADTokenExchange
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: '{"clientId":"${{ vars.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ vars.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ vars.AZURE_TENANT_ID }}"}'
