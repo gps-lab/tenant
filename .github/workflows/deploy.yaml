@@ -3,67 +3,82 @@ name: Azure Login
 on:
   workflow_call:
 
+# Top level permissions
 permissions:
   id-token: write
   contents: read
-  actions: read    # Added for accessing workflow details
-  security-events: read  # Added for security permissions
-  variables: read  # Added for reading organization variables
-
-env:
-  # Define these at the workflow level
-  CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-  SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-  TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-  CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  actions: read
+  security-events: read
+  variables: read
 
 jobs:
   azure-login:
     runs-on: ubuntu-latest
     environment: production
+    # Add job level permissions
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+      security-events: read
+      variables: read
     
     steps:
-      - name: Debug Variables # Added debug step
+      # First verify runner identity and permissions
+      - name: Check Runner Context
         run: |
-          echo "Checking variable availability..."
-          if [ -n "$CLIENT_ID" ]; then echo "CLIENT_ID is set"; else echo "CLIENT_ID is empty"; fi
-          if [ -n "$SUBSCRIPTION_ID" ]; then echo "SUBSCRIPTION_ID is set"; else echo "SUBSCRIPTION_ID is empty"; fi
-          if [ -n "$TENANT_ID" ]; then echo "TENANT_ID is set"; else echo "TENANT_ID is empty"; fi
-          if [ -n "$CLIENT_SECRET" ]; then echo "CLIENT_SECRET is set (value hidden)"; else echo "CLIENT_SECRET is empty"; fi
+          echo "Runner context:"
+          echo "OS: ${{ runner.os }}"
+          echo "Workspace: ${{ runner.workspace }}"
+          echo "Tool cache: ${{ runner.tool_cache }}"
+          echo "Temp: ${{ runner.temp }}"
+
+      # Try accessing vars directly to debug
+      - name: Debug Variable Access
+        id: var_check
+        run: |
+          echo "Testing direct variable access..."
+          echo "AZURE_CLIENT_ID availability: ${{ vars.AZURE_CLIENT_ID != '' }}"
+          echo "AZURE_SUBSCRIPTION_ID availability: ${{ vars.AZURE_SUBSCRIPTION_ID != '' }}"
+          echo "AZURE_TENANT_ID availability: ${{ vars.AZURE_TENANT_ID != '' }}"
+          echo "AZURE_CLIENT_SECRET availability: ${{ secrets.AZURE_CLIENT_SECRET != '' }}"
 
       - name: Validate Azure Credentials
+        shell: bash
         run: |
           echo "Checking CLIENTID..."
-          if [[ -n "$CLIENT_ID" ]]; then
+          if [[ -n "${{ vars.AZURE_CLIENT_ID }}" ]]; then
             echo "CLIENTID is present"
-            echo "client_id=$CLIENT_ID" >> $GITHUB_ENV
+            echo "client_id=${{ vars.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
           else
             echo "::error::CLIENTID is missing"
+            echo "Available variables:"
+            env | grep -i azure || true
             exit 1
           fi
 
           echo "Checking CLIENTSECRET..."
-          if [[ -n "$CLIENT_SECRET" ]]; then
+          if [[ -n "${{ secrets.AZURE_CLIENT_SECRET }}" ]]; then
             echo "CLIENTSECRET is present"
-            echo "client_secret=$CLIENT_SECRET" >> $GITHUB_ENV
+            echo "client_secret=${{ secrets.AZURE_CLIENT_SECRET }}" >> $GITHUB_ENV
           else
             echo "::error::CLIENTSECRET is missing"
             exit 1
           fi
 
           echo "Checking SUBSCRIPTIONID..."
-          if [[ -n "$SUBSCRIPTION_ID" ]]; then
+          if [[ -n "${{ vars.AZURE_SUBSCRIPTION_ID }}" ]]; then
             echo "SUBSCRIPTIONID is present"
-            echo "subscription_id=$SUBSCRIPTION_ID" >> $GITHUB_ENV
+            echo "subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
           else
             echo "::error::SUBSCRIPTIONID is missing"
             exit 1
           fi
 
           echo "Checking TENANTID..."
-          if [[ -n "$TENANT_ID" ]]; then
+          if [[ -n "${{ vars.AZURE_TENANT_ID }}" ]]; then
             echo "TENANTID is present"
-            echo "tenant_id=$TENANT_ID" >> $GITHUB_ENV
+            echo "tenant_id=${{ vars.AZURE_TENANT_ID }}" >> $GITHUB_ENV
           else
             echo "::error::TENANTID is missing"
             exit 1
