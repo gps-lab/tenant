@@ -10,50 +10,47 @@ permissions:
  id-token: write
 
 jobs:
- test-secrets:
-   runs-on: ubuntu-latest
-   steps:
-     - name: Test Secret Access
-       run: |
-         if [ -n "${{ secrets.CLIENTID }}" ]; then
-           echo "CLIENTID exists"
-         else
-           echo "CLIENTID is missing"
-         fi
-         if [ -n "${{ secrets.CLIENTSECRET }}" ]; then
-           echo "CLIENTSECRET exists"
-         else
-           echo "CLIENTSECRET is missing"
-         fi
-         if [ -n "${{ secrets.SUBSCRIPTIONID }}" ]; then
-           echo "SUBSCRIPTIONID exists"
-         else
-           echo "SUBSCRIPTIONID is missing"
-         fi
-         if [ -n "${{ secrets.TENANTID }}" ]; then
-           echo "TENANTID exists"
-         else
-           echo "TENANTID is missing"
-         fi
-
-     - name: Test Azure Creds JSON
-       run: |
-         echo "Testing JSON structure:"
-         echo '{"clientId":"${{ secrets.CLIENTID }}","clientSecret":"${{ secrets.CLIENTSECRET }}","subscriptionId":"${{ secrets.SUBSCRIPTIONID }}","tenantId":"${{ secrets.TENANTID }}"}'
- 
  terraform:
-   needs: test-secrets
    name: 'Terraform'
    runs-on: ubuntu-latest
    
    steps:
+   - name: Debug Secret Access
+     env:
+       CLIENT_ID: ${{ secrets.CLIENTID }}
+     run: |
+       if [ -z "$CLIENT_ID" ]; then
+         echo "::error::CLIENTID secret is empty"
+         exit 1
+       else
+         echo "CLIENTID secret is set"
+       fi
+
+   - name: Create Azure Credentials JSON
+     id: azure-credentials
+     run: |
+       echo "::add-mask::${{ secrets.CLIENTID }}"
+       echo "::add-mask::${{ secrets.CLIENTSECRET }}"
+       echo "::add-mask::${{ secrets.SUBSCRIPTIONID }}"
+       echo "::add-mask::${{ secrets.TENANTID }}"
+       CREDS=$(cat << EOF
+       {
+         "clientId": "${{ secrets.CLIENTID }}",
+         "clientSecret": "${{ secrets.CLIENTSECRET }}",
+         "subscriptionId": "${{ secrets.SUBSCRIPTIONID }}",
+         "tenantId": "${{ secrets.TENANTID }}"
+       }
+       EOF
+       )
+       echo "creds=${CREDS}" >> $GITHUB_OUTPUT
+
    - name: Checkout
      uses: actions/checkout@v4
 
    - name: 'Azure Login'
      uses: azure/login@v1
      with:
-       creds: '{"clientId":"${{ secrets.CLIENTID }}","clientSecret":"${{ secrets.CLIENTSECRET }}","subscriptionId":"${{ secrets.SUBSCRIPTIONID }}","tenantId":"${{ secrets.TENANTID }}"}'
+       creds: ${{ steps.azure-credentials.outputs.creds }}
        enable-AzPSSession: false
        auth-type: SERVICE_PRINCIPAL
        environment: azurecloud
