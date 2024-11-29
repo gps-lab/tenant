@@ -1,7 +1,9 @@
 name: Azure Login
 
 on:
-  workflow_call:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 
 permissions:
   id-token: write
