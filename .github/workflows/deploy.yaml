@@ -28,12 +28,10 @@ jobs:
     - name: 'Azure Login'
       uses: azure/login@v1
       with:
-          "clientId": "${{ secrets.clientId }}", 
-          "clientSecret": ${{ secrets.clientSecret }}, 
-          "subscriptionId": ${{ secrets.subscriptionId }}, 
-          "tenantId": ${{ secrets.tenantId }}
-          enable-AzPSSession: false
-          auth-type: SERVICE_PRINCIPAL
+        #creds: '{"client-id":"${{ secrets.clientId }}"", "client-secret":"${{ secrets.clientSecret }}", "subscription-id":"${{ secrets.subscriptionId }}"", "tenant-id":"${{ secrets.tenantId }}"}'
+        creds: '{"clientId":"${{ secrets.clientId }}","clientSecret":"${{ secrets.clientSecret }}","subscriptionId":"${{ secrets.subscriptionId }}","tenantId":"${{ secrets.tenantId }}"}'
+        enable-AzPSSession: false
+        auth-type: SERVICE_PRINCIPAL
 
     - name: 'Setup Terraform'
       uses: hashicorp/setup-terraform@v3
