@@ -6,6 +6,16 @@ on:
 permissions:
   id-token: write
   contents: read
+  actions: read    # Added for accessing workflow details
+  security-events: read  # Added for security permissions
+  variables: read  # Added for reading organization variables
+
+env:
+  # Define these at the workflow level
+  CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
 jobs:
   azure-login:
@@ -13,12 +23,15 @@ jobs:
     environment: production
     
     steps:
+      - name: Debug Variables # Added debug step
+        run: |
+          echo "Checking variable availability..."
+          if [ -n "$CLIENT_ID" ]; then echo "CLIENT_ID is set"; else echo "CLIENT_ID is empty"; fi
+          if [ -n "$SUBSCRIPTION_ID" ]; then echo "SUBSCRIPTION_ID is set"; else echo "SUBSCRIPTION_ID is empty"; fi
+          if [ -n "$TENANT_ID" ]; then echo "TENANT_ID is set"; else echo "TENANT_ID is empty"; fi
+          if [ -n "$CLIENT_SECRET" ]; then echo "CLIENT_SECRET is set (value hidden)"; else echo "CLIENT_SECRET is empty"; fi
+
       - name: Validate Azure Credentials
-        env:
-          CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-          SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-          CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         run: |
           echo "Checking CLIENTID..."
           if [[ -n "$CLIENT_ID" ]]; then
