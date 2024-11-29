@@ -13,109 +13,32 @@ jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
+    environment: production     # Add this line to specify environment
     
     steps:
-    - name: Check Secret Access
+    - name: Verify Secret Availability
       run: |
-        if [ ! -z "${{ secrets.CLIENTID }}" ]; then
-          echo "CLIENTID is set"
-        else
-          echo "CLIENTID is not set"
-        fi
-        if [ ! -z "${{ secrets.CLIENTSECRET }}" ]; then
-          echo "CLIENTSECRET is set"
-        else
-          echo "CLIENTSECRET is not set"
-        fi
-        if [ ! -z "${{ secrets.SUBSCRIPTIONID }}" ]; then
-          echo "SUBSCRIPTIONID is set"
-        else
-          echo "SUBSCRIPTIONID is not set"
-        fi
-        if [ ! -z "${{ secrets.TENANTID }}" ]; then
-          echo "TENANTID is set"
-        else
-          echo "TENANTID is not set"
-        fi
+        echo "Verifying required secrets..."
+        for secret in "CLIENTID" "CLIENTSECRET" "SUBSCRIPTIONID" "TENANTID"; do
+          if [[ -z "${!secret}" ]]; then
+            echo "::error::${secret} is not set"
+            exit 1
+          fi
+        done
+      env:
+        CLIENTID: ${{ secrets.CLIENTID }}
+        CLIENTSECRET: ${{ secrets.CLIENTSECRET }}
+        SUBSCRIPTIONID: ${{ secrets.SUBSCRIPTIONID }}
+        TENANTID: ${{ secrets.TENANTID }}
 
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: 'Azure Login'
       uses: azure/login@v1
+      env:
+        AZURE_CREDS: '{"clientId":"${{ secrets.CLIENTID }}","clientSecret":"${{ secrets.CLIENTSECRET }}","subscriptionId":"${{ secrets.SUBSCRIPTIONID }}","tenantId":"${{ secrets.TENANTID }}"}'
       with:
-        creds: '{"clientId":"${{ secrets.CLIENTID }}","clientSecret":"${{ secrets.CLIENTSECRET }}","subscriptionId":"${{ secrets.SUBSCRIPTIONID }}","tenantId":"${{ secrets.TENANTID }}"}'
+        creds: ${{ env.AZURE_CREDS }}
         enable-AzPSSession: false
         auth-type: SERVICE_PRINCIPAL
-        environment: azurecloud
-        allow-no-subscriptions: false
-        audience: api://AzureADTokenExchange
-
-    - name: 'Setup Terraform'
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: '1.7.0'
-
-    - name: 'Create and Format Backend Configuration'
-      working-directory: ./terraform
-      run: |
-        # Create initial backend.tf
-        cat > backend.tf << 'EOF'
-          terraform {
-            backend "azurerm" {
-              resource_group_name  = "terraform-state-rg"
-              storage_account_name = "tfstatemftfb413"
-              container_name       = "tfstate"
-              key                 = "terraform.tfstate"
-            }
-          }
-        EOF
-        
-        # Format the file
-        terraform fmt backend.tf
-        
-        # Print the formatted content
-        cat backend.tf
-
-    - name: 'Terraform Init'
-      working-directory: ./terraform
-      run: terraform init
-
-    - name: 'Terraform Format Check'
-      working-directory: ./terraform
-      run: |
-        # Run format check
-        terraform fmt -check
-        if [ $? -eq 0 ]; then
-          echo "Formatting check passed"
-        else
-          echo "Formatting issues found"
-          exit 1
-        fi
-
-    - name: 'Terraform Plan'
-      working-directory: ./terraform
-      run: |
-        set +e
-        terraform plan -detailed-exitcode -out=tfplan > plan_output.txt 2>&1
-        PLAN_EXIT_CODE=$?
-        cat plan_output.txt
-        if [ $PLAN_EXIT_CODE -eq 1 ]; then
-          echo "Terraform plan failed"
-          exit 1
-        fi
-        echo "TERRAFORM_PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
-
-    - name: 'Terraform Apply'
-      working-directory: ./terraform
-      #if: github.ref == 'refs/heads/main' && env.TERRAFORM_PLAN_EXIT_CODE == 2
-      run: |
-        echo "Applying changes"
-        terraform apply -auto-approve tfplan
-    
-    - name: 'Verify State'
-      working-directory: ./terraform
-      if: success() && github.ref == 'refs/heads/main'
-      run: |
-        echo "Verifying state file creation..."
-        terraform state list
