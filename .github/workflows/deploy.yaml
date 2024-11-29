@@ -15,6 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    - name: Verify Azure Credentials
+      run: |
+        if [[ -n "${{ secrets.AZURE_CREDENTIALS }}" ]]; then
+          echo "AZURE_CREDENTIALS secret is present"
+        else
+          echo "::error::AZURE_CREDENTIALS secret is missing"
+          exit 1
+        fi
+
     - name: Checkout
       uses: actions/checkout@v4
 
