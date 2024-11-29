@@ -13,32 +13,22 @@ jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
-    environment: production     # Add this line to specify environment
-    
     steps:
-    - name: Verify Secret Availability
+    - name: Print Secret Status
       run: |
-        echo "Verifying required secrets..."
-        for secret in "CLIENTID" "CLIENTSECRET" "SUBSCRIPTIONID" "TENANTID"; do
-          if [[ -z "${!secret}" ]]; then
-            echo "::error::${secret} is not set"
-            exit 1
-          fi
-        done
-      env:
-        CLIENTID: ${{ secrets.CLIENTID }}
-        CLIENTSECRET: ${{ secrets.CLIENTSECRET }}
-        SUBSCRIPTIONID: ${{ secrets.SUBSCRIPTIONID }}
-        TENANTID: ${{ secrets.TENANTID }}
+        echo "Testing if secrets exist:"
+        if [[ -n "${{ secrets.AZURE_CREDENTIALS_CLIENT_ID }}" ]]; then echo "AZURE_CREDENTIALS_CLIENT_ID exists"; else echo "AZURE_CREDENTIALS_CLIENT_ID is missing"; fi
+        if [[ -n "${{ secrets.AZURE_CREDENTIALS_CLIENT_SECRET }}" ]]; then echo "AZURE_CREDENTIALS_CLIENT_SECRET exists"; else echo "AZURE_CREDENTIALS_CLIENT_SECRET is missing"; fi
+        if [[ -n "${{ secrets.AZURE_CREDENTIALS_SUBSCRIPTION_ID }}" ]]; then echo "AZURE_CREDENTIALS_SUBSCRIPTION_ID exists"; else echo "AZURE_CREDENTIALS_SUBSCRIPTION_ID is missing"; fi
+        if [[ -n "${{ secrets.AZURE_CREDENTIALS_TENANT_ID }}" ]]; then echo "AZURE_CREDENTIALS_TENANT_ID exists"; else echo "AZURE_CREDENTIALS_TENANT_ID is missing"; fi
 
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: 'Azure Login'
       uses: azure/login@v1
-      env:
-        AZURE_CREDS: '{"clientId":"${{ secrets.CLIENTID }}","clientSecret":"${{ secrets.CLIENTSECRET }}","subscriptionId":"${{ secrets.SUBSCRIPTIONID }}","tenantId":"${{ secrets.TENANTID }}"}'
       with:
-        creds: ${{ env.AZURE_CREDS }}
-        enable-AzPSSession: false
-        auth-type: SERVICE_PRINCIPAL
+        client-id: ${{ secrets.AZURE_CREDENTIALS_CLIENT_ID }}
+        client-secret: ${{ secrets.AZURE_CREDENTIALS_CLIENT_SECRET }}
+        tenant-id: ${{ secrets.AZURE_CREDENTIALS_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_CREDENTIALS_SUBSCRIPTION_ID }}
