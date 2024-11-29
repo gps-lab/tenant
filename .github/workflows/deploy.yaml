@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
-      ARM_CLIENT_ID: ${{ secrets.org.CLIENTID }}
-      ARM_CLIENT_SECRET: ${{ secrets.org.CLIENTSECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.org.SUBSCRIPTIONID }}
-      ARM_TENANT_ID: ${{ secrets.org.TENANTID }}
+      ARM_CLIENT_ID: ${{ secrets.CLIENTID }}
+      ARM_CLIENT_SECRET: ${{ secrets.CLIENTSECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.SUBSCRIPTIONID }}
+      ARM_TENANT_ID: ${{ secrets.TENANTID }}
 
     steps:
     - name: Checkout
@@ -27,7 +27,7 @@ jobs:
     - name: 'Azure Login'
       uses: azure/login@v1
       with:
-        creds: '{"clientId":"${{ secrets.org.CLIENTID }}","clientSecret":"${{ secrets.org.CLIENTSECRET }}","subscriptionId":"${{ secrets.org.SUBSCRIPTIONID }}","tenantId":"${{ secrets.org.TENANTID }}"}'
+        creds: '{"clientId":"${{ secrets.CLIENTID }}","clientSecret":"${{ secrets.CLIENTSECRET }}","subscriptionId":"${{ secrets.SUBSCRIPTIONID }}","tenantId":"${{ secrets.TENANTID }}"}'
         enable-AzPSSession: false
         auth-type: SERVICE_PRINCIPAL
         environment: azurecloud
@@ -76,12 +76,6 @@ jobs:
           exit 1
         fi
 
-    # - name: 'Import Resource Group'
-    #   working-directory: ./terraform
-    #   continue-on-error: true
-    #   run: |
-    #     terraform import azurerm_resource_group.rg hello-world-rg || echo "Resource group import failed - might not exist or already imported"
-
     - name: 'Terraform Plan'
       working-directory: ./terraform
       run: |
@@ -108,11 +102,4 @@ jobs:
       if: success() && github.ref == 'refs/heads/main'
       run: |
         echo "Verifying state file creation..."
-        terraform state list  
-
-# Changes made:
-# 1. Simplified backend.tf creation
-# 2. Added explicit formatting step
-# 3. Added format verification
-# 4. Removed variables from backend config (will be provided during init)
-# 5. Enhanced error handling for format check
+        terraform state list
