@@ -15,26 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Verify Azure Credentials
-      run: |
-        if [[ -n "${{ secrets.org.AZURE_CREDENTIALS }}" ]]; then
-          echo "AZURE_CREDENTIALS secret is present"
-        else
-          echo "::error::AZURE_CREDENTIALS secret is missing"
-          exit 1
-        fi
-
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: 'Azure Login'
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.org.AZURE_CREDENTIALS }}
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
         enable-AzPSSession: false
         auth-type: SERVICE_PRINCIPAL
         environment: azurecloud
         allow-no-subscriptions: false
         audience: api://AzureADTokenExchange
-
-    # Rest of your workflow remains the same...
