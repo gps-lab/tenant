@@ -6,24 +6,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
-  contents: read
-  actions: read
-  security-events: read
-  variables: read
+  id-token: write  # Required for requesting JWT
+  contents: read   # Required for actions/checkout
+  actions: read    # Required for workflow access
 
 jobs:
   azure-login:
     runs-on: ubuntu-latest
     environment: production
-    # Add organization access
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        
       - name: Network Diagnostics
         run: |
           echo "Testing connectivity to GitHub services..."
@@ -44,20 +36,6 @@ jobs:
           # Display route table
           echo "Route table:"
           ip route list
-          
-          # Test org variable access
-          echo "Testing organization variable access..."
-          curl -H "Authorization: token $GITHUB_TOKEN" \
-               -H "Accept: application/vnd.github.v3+json" \
-               https://api.github.com/user || echo "Failed to access GitHub API with token"
-
-      - name: Debug Organization Variables
-        run: |
-          echo "Available variables context:"
-          echo "Has AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID != '' }}"
-          echo "Has AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID != '' }}"
-          echo "Has AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID != '' }}"
-          echo "Has AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET != '' }}"
 
       - name: Validate Azure Credentials
         run: |
@@ -102,4 +80,3 @@ jobs:
         uses: azure/login@v1
         with:
           creds: '{"clientId":"${{ vars.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ vars.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ vars.AZURE_TENANT_ID }}"}'
-          
