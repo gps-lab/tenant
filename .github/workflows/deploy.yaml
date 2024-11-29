@@ -28,7 +28,13 @@ jobs:
     - name: 'Azure Login'
       uses: azure/login@v1
       with:
-        creds: '{"clientId": "${{ secrets.clientId }}", "clientSecret": ${{ secrets.clientSecret }}, "subscriptionId": ${{ secrets.subscriptionId }}, "tenantId": ${{ secrets.tenantId }}'
+        creds: |
+          {
+          "clientId": "${{ secrets.clientId }}", 
+          "clientSecret": ${{ secrets.clientSecret }}, 
+          "subscriptionId": ${{ secrets.subscriptionId }}, 
+          "tenantId": ${{ secrets.tenantId }}
+          }
         enable-AzPSSession: false
 
     - name: 'Setup Terraform'
