@@ -15,34 +15,55 @@ jobs:
    runs-on: ubuntu-latest
    
    steps:
-   - name: Debug Secret Access
-     env:
-       CLIENT_ID: ${{ secrets.CLIENTID }}
+   - name: Debug Secrets
+     id: secrets-debug
      run: |
-       if [ -z "$CLIENT_ID" ]; then
-         echo "::error::CLIENTID secret is empty"
-         exit 1
+       echo "Checking CLIENTID..."
+       if [[ -n "${{ secrets.CLIENTID }}" ]]; then
+         echo "CLIENTID is present"
+         echo "client_id=${{ secrets.CLIENTID }}" >> $GITHUB_ENV
        else
-         echo "CLIENTID secret is set"
+         echo "::error::CLIENTID is missing"
+         exit 1
        fi
 
-   - name: Create Azure Credentials JSON
-     id: azure-credentials
+       echo "Checking CLIENTSECRET..."
+       if [[ -n "${{ secrets.CLIENTSECRET }}" ]]; then
+         echo "CLIENTSECRET is present"
+         echo "client_secret=${{ secrets.CLIENTSECRET }}" >> $GITHUB_ENV
+       else
+         echo "::error::CLIENTSECRET is missing"
+         exit 1
+       fi
+
+       echo "Checking SUBSCRIPTIONID..."
+       if [[ -n "${{ secrets.SUBSCRIPTIONID }}" ]]; then
+         echo "SUBSCRIPTIONID is present"
+         echo "subscription_id=${{ secrets.SUBSCRIPTIONID }}" >> $GITHUB_ENV
+       else
+         echo "::error::SUBSCRIPTIONID is missing"
+         exit 1
+       fi
+
+       echo "Checking TENANTID..."
+       if [[ -n "${{ secrets.TENANTID }}" ]]; then
+         echo "TENANTID is present"
+         echo "tenant_id=${{ secrets.TENANTID }}" >> $GITHUB_ENV
+       else
+         echo "::error::TENANTID is missing"
+         exit 1
+       fi
+
+   - name: Setup Azure Credentials
+     id: setup-creds
      run: |
-       echo "::add-mask::${{ secrets.CLIENTID }}"
-       echo "::add-mask::${{ secrets.CLIENTSECRET }}"
-       echo "::add-mask::${{ secrets.SUBSCRIPTIONID }}"
-       echo "::add-mask::${{ secrets.TENANTID }}"
-       CREDS=$(cat << EOF
-       {
-         "clientId": "${{ secrets.CLIENTID }}",
-         "clientSecret": "${{ secrets.CLIENTSECRET }}",
-         "subscriptionId": "${{ secrets.SUBSCRIPTIONID }}",
-         "tenantId": "${{ secrets.TENANTID }}"
-       }
-       EOF
-       )
-       echo "creds=${CREDS}" >> $GITHUB_OUTPUT
+       AZURE_CREDS=$(jq -n \
+         --arg cid "${{ env.client_id }}" \
+         --arg cs "${{ env.client_secret }}" \
+         --arg sid "${{ env.subscription_id }}" \
+         --arg tid "${{ env.tenant_id }}" \
+         '{clientId: $cid, clientSecret: $cs, subscriptionId: $sid, tenantId: $tid}')
+       echo "azure_credentials=${AZURE_CREDS}" >> $GITHUB_OUTPUT
 
    - name: Checkout
      uses: actions/checkout@v4
@@ -50,7 +71,7 @@ jobs:
    - name: 'Azure Login'
      uses: azure/login@v1
      with:
-       creds: ${{ steps.azure-credentials.outputs.creds }}
+       creds: ${{ steps.setup-creds.outputs.azure_credentials }}
        enable-AzPSSession: false
        auth-type: SERVICE_PRINCIPAL
        environment: azurecloud
