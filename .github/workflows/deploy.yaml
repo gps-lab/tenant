@@ -27,26 +27,26 @@ jobs:
         with:
             terraform_version: '1.7.0'
     
-      # - name: 'Create and Format Backend Configuration'
-      #   working-directory: ./terraform
-      #   run: |
-      #       # Create initial backend.tf
-      #       cat > backend.tf << 'EOF'
-      #         terraform {
-      #           backend "azurerm" {
-      #             resource_group_name  = "terraform-state-rg"
-      #             storage_account_name = "tfstatemftfb413"
-      #             container_name       = "tfstate"
-      #             key                 = "terraform.tfstate"
-      #           }
-      #         }
-      #       EOF
+      - name: 'Create and Format Backend Configuration'
+        working-directory: ./terraform
+        run: |
+            # Create initial backend.tf
+            cat > backend.tf << 'EOF'
+              terraform {
+                backend "azurerm" {
+                  resource_group_name  = "terraform-state-rg"
+                  storage_account_name = "tfstatemftfb413"
+                  container_name       = "tfstate"
+                  key                 = "terraform.tfstate"
+                }
+              }
+            EOF
             
-      #       # Format the file
-      #       terraform fmt backend.tf
+            # Format the file
+            terraform fmt backend.tf
             
-      #       # Print the formatted content
-      #       cat backend.tf
+            # Print the formatted content
+            cat backend.tf
     
       # - name: 'Terraform Init'
       #   working-directory: ./terraform
