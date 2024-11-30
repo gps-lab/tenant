@@ -5,42 +5,44 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+# Top level permissions are important
 permissions:
-  id-token: write  # Required for requesting JWT
-  contents: read   # Required for actions/checkout
-  actions: read    # Required for workflow access
+  id-token: write
+  contents: read
+  actions: read
 
 jobs:
   azure-login:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Network Diagnostics
+      - name: Check Workflow Permissions
         run: |
-          echo "Testing connectivity to GitHub services..."
+          echo "Checking GitHub Actions permissions..."
           
-          # Test GitHub API connectivity
-          curl -Is https://api.github.com/meta | head -n 1 || echo "Cannot reach GitHub API"
+          # Check if we can read repository contents
+          echo "Testing repository read access..."
+          curl -H "Authorization: token ${{ github.token }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/${{ github.repository }} || echo "Cannot access repository"
           
-          # Test connectivity to key GitHub domains
-          for domain in api.github.com github.com raw.githubusercontent.com; do
-            echo "Testing connection to $domain..."
-            nc -zv $domain 443 2>&1 || echo "Failed to connect to $domain"
-          done
+          # Check if we can read org variables
+          echo "Testing organization variables access..."
+          echo "AZURE_CLIENT_ID defined: ${{ vars.AZURE_CLIENT_ID != '' }}"
+          echo "AZURE_SUBSCRIPTION_ID defined: ${{ vars.AZURE_SUBSCRIPTION_ID != '' }}"
+          echo "AZURE_TENANT_ID defined: ${{ vars.AZURE_TENANT_ID != '' }}"
           
-          # Display current DNS settings
-          echo "DNS Settings:"
-          cat /etc/resolv.conf
-          
-          # Display route table
-          echo "Route table:"
-          ip route list
+          # Check token permissions
+          echo "Token Permissions:"
+          curl -H "Authorization: token ${{ github.token }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/${{ github.repository }}/actions/permissions || echo "Cannot check permissions"
 
       - name: Validate Azure Credentials
         run: |
           echo "Checking CLIENTID..."
           if [[ -n "${{ vars.AZURE_CLIENT_ID }}" ]]; then
-            echo "CLIENTID is present"
+            echo "CLIENTID is present: ${AZURE_CLIENT_ID}"
             echo "client_id=${{ vars.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
           else
             echo "::error::CLIENTID is missing"
