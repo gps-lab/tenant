@@ -22,10 +22,10 @@ jobs:
         with:
           creds: '{"clientId":"${{ vars.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ vars.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ vars.AZURE_TENANT_ID }}"}'
       
-      # - name: 'Setup Terraform'
-      #   uses: hashicorp/setup-terraform@v3
-      #   with:
-      #       terraform_version: '1.7.0'
+      - name: 'Setup Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+            terraform_version: '1.7.0'
     
       # - name: 'Create and Format Backend Configuration'
       #   working-directory: ./terraform
