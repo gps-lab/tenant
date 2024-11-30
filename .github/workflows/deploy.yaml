@@ -33,7 +33,7 @@ jobs:
             # Create terraform directory if it doesn't exist
             mkdir -p terraform
             # Create initial backend.tf
-            cat > backend.tf << 'EOF'
+            cat > terraform/backend.tf << 'EOF'
               terraform {
                 backend "azurerm" {
                   resource_group_name  = "terraform-state-rg"
