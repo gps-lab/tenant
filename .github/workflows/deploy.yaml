@@ -1,57 +1,64 @@
-name: Azure Login
+name: Azure Terraform Deployment
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
-# Top level permissions are important
 permissions:
   id-token: write
-  contents: read
-  actions: read
+  contents: write
+  actions: write
 
 jobs:
-  azure-login:
+  terraform-deploy:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Azure Login
-        if: success()
         uses: azure/login@v1
         with:
-          creds: '{"clientId":"${{ vars.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ vars.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ vars.AZURE_TENANT_ID }}"}'
-      - name: 'Setup Terraform'
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
+
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-            terraform_version: '1.7.0'
-    
-      - name: 'Create and Format Backend Configuration'
+          terraform_version: '1.7.0'
+
+      - name: Create and Format Backend Configuration
         working-directory: ./terraform
         run: |
-            # Create initial backend.tf
-            cat > backend.tf << 'EOF'
-              terraform {
-                backend "azurerm" {
-                  resource_group_name  = "terraform-state-rg"
-                  storage_account_name = "tfstatemftfb413"
-                  container_name       = "tfstate"
-                  key                 = "terraform.tfstate"
-                }
-              }
-            EOF
-            
-            # Format the file
-            terraform fmt backend.tf
-            
-            # Print the formatted content
-            cat backend.tf
-    
-      - name: 'Terraform Init'
+          # Create initial backend.tf
+          cat > backend.tf << 'EOF'
+          terraform {
+            backend "azurerm" {
+              resource_group_name  = "terraform-state-rg"
+              storage_account_name = "tfstatemftfb413"
+              container_name      = "tfstate"
+              key                 = "terraform.tfstate"
+            }
+          }
+          EOF
+          
+          # Format the file
+          terraform fmt backend.tf
+          
+          # Print the formatted content
+          cat backend.tf
+
+      - name: Terraform Init
         working-directory: ./terraform
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: terraform init
-  
-      - name: 'Terraform Format Check'
+
+      - name: Terraform Format Check
         working-directory: ./terraform
         run: |
           # Run format check
@@ -62,9 +69,14 @@ jobs:
             echo "Formatting issues found"
             exit 1
           fi
-  
-      - name: 'Terraform Plan'
+
+      - name: Terraform Plan
         working-directory: ./terraform
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           set +e
           terraform plan -detailed-exitcode -out=tfplan > plan_output.txt 2>&1
@@ -75,18 +87,27 @@ jobs:
             exit 1
           fi
           echo "TERRAFORM_PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
-  
-      - name: 'Terraform Apply'
+
+      - name: Terraform Apply
         working-directory: ./terraform
-        #if: github.ref == 'refs/heads/main' && env.TERRAFORM_PLAN_EXIT_CODE == 2
+        if: github.ref == 'refs/heads/main' && env.TERRAFORM_PLAN_EXIT_CODE == 2
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           echo "Applying changes"
           terraform apply -auto-approve tfplan
-          # Optional: Verify state was created
-      
-      - name: 'Verify State'
+
+      - name: Verify State
         working-directory: ./terraform
         if: success() && github.ref == 'refs/heads/main'
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           echo "Verifying state file creation..."
-          terraform state list    
+          terraform state list
