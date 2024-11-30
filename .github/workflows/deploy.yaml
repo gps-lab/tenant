@@ -30,6 +30,8 @@ jobs:
       - name: 'Create and Format Backend Configuration'
         working-directory: ./terraform
         run: |
+            # Create terraform directory if it doesn't exist
+            mkdir -p terraform
             # Create initial backend.tf
             cat > backend.tf << 'EOF'
               terraform {
