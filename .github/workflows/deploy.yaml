@@ -11,8 +11,14 @@ permissions:
   actions: read
 
 jobs:
-  azure-login:
+  setup-terraform-state:
     runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+
     
     steps:
       - name: Checkout repository
