@@ -53,13 +53,13 @@ jobs:
           # Print the formatted content
           cat backend.tf
 
-          - name: 'Terraform Init'
-          working-directory: ./terraform
-          run: terraform init
+      - name: 'Terraform Init'
+        working-directory: ./terraform
+        run: terraform init
     
       - name: 'Terraform Format Check'
-          working-directory: ./terraform
-          run: |
+        working-directory: ./terraform
+        run: |
             # Run format check
             terraform fmt -check
             if [ $? -eq 0 ]; then
