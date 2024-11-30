@@ -21,3 +21,72 @@ jobs:
         uses: azure/login@v1
         with:
           creds: '{"clientId":"${{ vars.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ vars.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ vars.AZURE_TENANT_ID }}"}'
+      - name: 'Setup Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+            terraform_version: '1.7.0'
+    
+      - name: 'Create and Format Backend Configuration'
+        working-directory: ./terraform
+        run: |
+            # Create initial backend.tf
+            cat > backend.tf << 'EOF'
+              terraform {
+                backend "azurerm" {
+                  resource_group_name  = "terraform-state-rg"
+                  storage_account_name = "tfstatemftfb413"
+                  container_name       = "tfstate"
+                  key                 = "terraform.tfstate"
+                }
+              }
+            EOF
+            
+            # Format the file
+            terraform fmt backend.tf
+            
+            # Print the formatted content
+            cat backend.tf
+    
+      - name: 'Terraform Init'
+        working-directory: ./terraform
+        run: terraform init
+  
+      - name: 'Terraform Format Check'
+        working-directory: ./terraform
+        run: |
+          # Run format check
+          terraform fmt -check
+          if [ $? -eq 0 ]; then
+            echo "Formatting check passed"
+          else
+            echo "Formatting issues found"
+            exit 1
+          fi
+  
+      - name: 'Terraform Plan'
+        working-directory: ./terraform
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -out=tfplan > plan_output.txt 2>&1
+          PLAN_EXIT_CODE=$?
+          cat plan_output.txt
+          if [ $PLAN_EXIT_CODE -eq 1 ]; then
+            echo "Terraform plan failed"
+            exit 1
+          fi
+          echo "TERRAFORM_PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
+  
+      - name: 'Terraform Apply'
+        working-directory: ./terraform
+        #if: github.ref == 'refs/heads/main' && env.TERRAFORM_PLAN_EXIT_CODE == 2
+        run: |
+          echo "Applying changes"
+          terraform apply -auto-approve tfplan
+          # Optional: Verify state was created
+      
+      - name: 'Verify State'
+        working-directory: ./terraform
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          echo "Verifying state file creation..."
+          terraform state list    
