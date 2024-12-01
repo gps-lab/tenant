@@ -13,6 +13,7 @@ permissions:
 jobs:
   setup-terraform-state:
     runs-on: ubuntu-latest
+    environment: tenant00
     env:
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
