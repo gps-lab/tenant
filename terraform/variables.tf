@@ -1,3 +1,5 @@
 variable "location" {
-  type    = string
+  type        = string
+  description = "Azure region for resources"
+  #default     = "eastus"
 }
