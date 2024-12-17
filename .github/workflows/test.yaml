@@ -1,4 +1,4 @@
-name: test deploy
+name: Azure Login
 
 on:
   push:
@@ -39,11 +39,16 @@ jobs:
     
       - name: Create and Format Backend Configuration
         run: |
-          # Create terraform directory
+          # Debug: Show initial directory structure
+          echo "Current directory structure:"
+          pwd
+          ls -R
+          
+          # Create terraform directory if it doesn't exist
           mkdir -p terraform
           
-          # Copy all Terraform files to the terraform directory
-          cp *.tf terraform/
+          # Copy all files from the modules directory
+          cp -r Code/github/tenant/terraform/modules/resource_group/* terraform/
           
           # Create backend.tf in the terraform directory
           cat > terraform/backend.tf << 'EOF'
@@ -61,12 +66,9 @@ jobs:
           cd terraform
           terraform fmt
           
-          # Print directory contents for debugging
+          # Debug: Show final contents
+          echo "Final terraform directory contents:"
           ls -la
-          
-          # Print the backend configuration
-          echo "Backend Configuration:"
-          cat backend.tf
 
       - name: 'Terraform Init'
         working-directory: ./terraform
