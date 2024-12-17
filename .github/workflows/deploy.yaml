@@ -1,4 +1,4 @@
-name: test pipeline
+name: deploy pipeline
 
 on:
   push:
