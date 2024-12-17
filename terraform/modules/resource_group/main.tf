@@ -1,6 +1,6 @@
 # Create a resource group
 resource "azurerm_resource_group" "rg" {
-  name     = "hello-world-rg"
+  name     = "ml-rg"
   location = var.location
 
   tags = {
