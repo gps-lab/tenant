@@ -2,7 +2,7 @@
 
 # Create a resource group
 resource "azurerm_resource_group" "rg" {
-  name     = "hello-world-rg"
+  name     = "tn0e-dev-eastus-management"
   location = var.location
 
   tags = {
