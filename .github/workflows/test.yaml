@@ -48,7 +48,7 @@ jobs:
           mkdir -p terraform
           
           # Copy all files from the modules directory
-          cp -r Code/github/tenant/terraform/modules/resource_group/* terraform/
+          cp -r ./terraform/modules/resource_group/* terraform/
           
           # Create backend.tf in the terraform directory
           cat > terraform/backend.tf << 'EOF'
