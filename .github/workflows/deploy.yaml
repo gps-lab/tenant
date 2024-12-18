@@ -94,8 +94,8 @@ jobs:
               echo "Error: TF_VAR_location is not set"
               exit 1
             fi
-            if [ -z "$TF_VAR_name" ]; then
-              echo "Error: TF_VAR_name is not set"
+            if [ -z "$TF_VAR_" ]; then
+              echo "Error: TF_VAR_TENANT_SHORTNAME is not set"
               exit 1
             fi
             
