@@ -77,90 +77,75 @@ jobs:
       - name: 'Terraform Format Check'
         working-directory: ./terraform
         run: |
-            # Run format check
-            terraform fmt -check
-            if [ $? -eq 0 ]; then
-              echo "Formatting check passed"
-            else
-              echo "Formatting issues found"
-              exit 1
-            fi
-    
-      # - name: 'Terraform Plan'
-      #   working-directory: ./terraform
-      #   run: |
-      #       # Validate required variables
-      #       if [ -z "$TF_VAR_location" ]; then
-      #         echo "Error: TF_VAR_location is not set"
-      #         exit 1
-      #       fi
-      #       if [ -z "$TF_VAR_TENANT_SHORTNAME" ]; then
-      #         echo "Error: TF_VAR_TENANT_SHORTNAME is not set"
-      #         exit 1
-      #       fi
-            
-      #       set +e
-      #       terraform plan -detailed-exitcode -out=tfplan > plan_output.txt 2>&1
-      #       PLAN_EXIT_CODE=$?
-      #       cat plan_output.txt
-      #       if [ $PLAN_EXIT_CODE -eq 1 ]; then
-      #         echo "Terraform plan failed"
-      #         exit 1
-      #       fi
-      #       echo "TERRAFORM_PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
-    
+          # Run format check
+          terraform fmt -check
+          if [ $? -eq 0 ]; then
+            echo "Formatting check passed"
+          else
+            echo "Formatting issues found"
+            exit 1
+          fi
 
       - name: 'Terraform Plan'
         working-directory: ./terraform
         run: |
-            # Debug: Print all environment variables
-            echo "Environment Variables:"
-            env | grep TF_VAR
-            
-            # Print current directory contents
-            echo "Directory Contents:"
-            ls -la
-            
-            # Validate required variables
-            if [ -z "$TF_VAR_location" ]; then
-                echo "Error: TF_VAR_location is not set"
-                exit 1
-            fi
-            if [ -z "$TF_VAR_tenant_shortname" ]; then
-                echo "Error: TF_VAR_tenant_shortname is not set"
-                exit 1
-            fi
-            
-            echo "Starting Terraform plan at $(date)"
-            
-            # Run plan with debug output
-            TF_LOG=DEBUG terraform plan -detailed-exitcode -out=tfplan
-            PLAN_EXIT_CODE=$?
-            
-            echo "Plan completed at $(date) with exit code: $PLAN_EXIT_CODE"
-            
-            if [ $PLAN_EXIT_CODE -eq 1 ]; then
-                echo "Terraform plan failed"
-                exit 1
-            fi
-            echo "TERRAFORM_PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
+          # Debug: Print all environment variables
+          echo "Environment Variables:"
+          env | grep TF_VAR
+          
+          # Print current directory contents
+          echo "Directory Contents:"
+          ls -la
+          
+          # Validate required variables
+          if [ -z "$TF_VAR_location" ]; then
+              echo "Error: TF_VAR_location is not set"
+              exit 1
+          fi
+          if [ -z "$TF_VAR_tenant_shortname" ]; then
+              echo "Error: TF_VAR_tenant_shortname is not set"
+              exit 1
+          fi
+          
+          echo "Starting Terraform plan at $(date)"
+          
+          # Run plan and capture both output and exit code
+          set +e  # Don't exit on error
+          TF_LOG=DEBUG terraform plan -detailed-exitcode -out=tfplan > plan_output.txt 2>&1
+          PLAN_EXIT_CODE=$?
+          cat plan_output.txt
+          
+          echo "Plan completed at $(date) with exit code: $PLAN_EXIT_CODE"
+          
+          # Export the exit code for later steps
+          echo "TERRAFORM_PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
+          
+          # Only exit if there's an error (exit code 1)
+          if [ $PLAN_EXIT_CODE -eq 1 ]; then
+              echo "Terraform plan failed"
+              exit 1
+          fi
         
       - name: 'Terraform Apply'
         working-directory: ./terraform
         if: github.ref == 'refs/heads/main'
         run: |
-            if [ -f tfplan ] && [ "$TERRAFORM_PLAN_EXIT_CODE" == "2" ]; then
-                echo "Changes detected, applying..."
-                terraform apply -auto-approve tfplan
-            else
-                echo "No changes to apply, skipping..."
-            fi
+          echo "Plan exit code was: $TERRAFORM_PLAN_EXIT_CODE"
+          if [ -f tfplan ] && [ "$TERRAFORM_PLAN_EXIT_CODE" -eq 2 ]; then
+              echo "Changes detected, applying..."
+              terraform apply -auto-approve tfplan
+          elif [ "$TERRAFORM_PLAN_EXIT_CODE" -eq 0 ]; then
+              echo "No changes to apply, skipping..."
+          else
+              echo "Unexpected plan exit code: $TERRAFORM_PLAN_EXIT_CODE"
+              exit 1
+          fi
         env:
-            TERRAFORM_PLAN_EXIT_CODE: ${{ env.TERRAFORM_PLAN_EXIT_CODE }}
+          TERRAFORM_PLAN_EXIT_CODE: ${{ env.TERRAFORM_PLAN_EXIT_CODE }}
 
       - name: 'Verify State'
         working-directory: ./terraform
         if: success() && github.ref == 'refs/heads/main'
         run: |
-            echo "Verifying state file creation..."
-            terraform state list
+          echo "Verifying state file creation..."
+          terraform state list
