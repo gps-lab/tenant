@@ -70,6 +70,13 @@ jobs:
           echo "Final terraform directory contents:"
           ls -la
 
+      - name: 'Verify State'
+        working-directory: ./terraform
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+            echo "Verifying state file creation..."
+            terraform state list
+
       - name: 'Terraform Init'
         working-directory: ./terraform
         run: terraform init
@@ -143,10 +150,3 @@ jobs:
           fi
         env:
           CHANGES_DETECTED: ${{ env.CHANGES_DETECTED }}
-          
-      - name: 'Verify State'
-        working-directory: ./terraform
-        if: success() && github.ref == 'refs/heads/main'
-        run: |
-            echo "Verifying state file creation..."
-            terraform state list
