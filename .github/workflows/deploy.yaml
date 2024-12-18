@@ -213,6 +213,7 @@ jobs:
       #   env:
       #     TERRAFORM_PLAN_EXIT_CODE: ${{ env.TERRAFORM_PLAN_EXIT_CODE }}
 
+      
       - name: 'Terraform Plan'
         working-directory: ./terraform
         run: |
@@ -236,16 +237,18 @@ jobs:
           
           echo "Starting Terraform plan at $(date)"
           
-          # Run plan and store output
-          terraform plan -detailed-exitcode -out=tfplan | tee plan_output.txt
-          PLAN_EXIT_CODE=${PIPESTATUS[0]}
+          # Run plan and capture its exit code correctly
+          set +e  # Prevent script from exiting on non-zero exit code
+          terraform plan -detailed-exitcode -out=tfplan
+          PLAN_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
           
-          echo "Plan completed at $(date) with exit code: $PLAN_EXIT_CODE"
+          echo "Raw plan exit code: $PLAN_EXIT_CODE"
           
-          # Export the exit code for later steps
+          # Store the exit code
           echo "TERRAFORM_PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
           
-          # Only exit if there's an error (exit code 1)
+          # Exit only on error (exit code 1)
           if [ $PLAN_EXIT_CODE -eq 1 ]; then
               echo "Terraform plan failed"
               exit 1
@@ -255,18 +258,17 @@ jobs:
         working-directory: ./terraform
         if: github.ref == 'refs/heads/main'
         run: |
-          PLAN_EXIT_CODE="${TERRAFORM_PLAN_EXIT_CODE:-0}"
+          PLAN_EXIT_CODE=${{ env.TERRAFORM_PLAN_EXIT_CODE }}
           echo "Plan exit code was: $PLAN_EXIT_CODE"
           
           if [ -f tfplan ] && [ "$PLAN_EXIT_CODE" -eq 2 ]; then
               echo "Changes detected, applying..."
               terraform apply -auto-approve tfplan
+          elif [ "$PLAN_EXIT_CODE" -eq 0 ]; then
+              echo "No changes detected, skipping apply"
           else
-              echo "No changes to apply or plan failed. Exit code: $PLAN_EXIT_CODE"
+              echo "Unexpected plan exit code: $PLAN_EXIT_CODE"
           fi
-        env:
-          TERRAFORM_PLAN_EXIT_CODE: ${{ env.TERRAFORM_PLAN_EXIT_CODE }}
-      
       - name: 'Verify State'
         working-directory: ./terraform
         if: success() && github.ref == 'refs/heads/main'
