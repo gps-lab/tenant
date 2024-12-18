@@ -1,0 +1,151 @@
+name: deploy pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
+jobs:
+  setup-terraform-state:
+    runs-on: ubuntu-latest
+    environment: tenant00
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      TF_VAR_location: ${{ vars.LOCATION }}
+      TF_VAR_tenant_shortname: ${{ vars.TENANT_SHORTNAME }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Azure Login
+        if: success()
+        uses: azure/login@v1
+        with:
+          creds: '{"clientId":"${{ vars.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ vars.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ vars.AZURE_TENANT_ID }}"}'
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.7.0'
+    
+      - name: Create and Format Backend Configuration
+        run: |
+          # Debug: Show initial directory structure
+          echo "Current directory structure:"
+          pwd
+          ls -R
+          
+          # Create terraform directory if it doesn't exist
+          mkdir -p terraform
+          
+          # Copy all files from the modules directory
+          cp -r ./terraform/modules/resource_group/* terraform/
+          
+          # Create backend.tf in the terraform directory
+          cat > terraform/backend.tf << 'EOF'
+          terraform {
+            backend "azurerm" {
+              resource_group_name  = "terraform-state-rg"
+              storage_account_name = "tfstatemftfb413"
+              container_name      = "tfstate"
+              key                 = "terraform.tfstate"
+            }
+          }
+          EOF
+          
+          # Format the files
+          cd terraform
+          terraform fmt
+          
+          # Debug: Show final contents
+          echo "Final terraform directory contents:"
+          ls -la
+
+      - name: 'Terraform Init'
+        working-directory: ./terraform
+        run: terraform init
+    
+      - name: 'Terraform Format Check'
+        working-directory: ./terraform
+        run: |
+          # Run format check
+          terraform fmt -check
+          if [ $? -eq 0 ]; then
+            echo "Formatting check passed"
+          else
+            echo "Formatting issues found"
+            exit 1
+          fi
+
+      - name: 'Terraform Plan'
+        working-directory: ./terraform
+        run: |
+          # Debug: Print all environment variables
+          echo "Environment Variables:"
+          env | grep TF_VAR
+          
+          # Print current directory contents
+          echo "Directory Contents:"
+          ls -la
+          
+          # Validate required variables
+          if [ -z "$TF_VAR_location" ]; then
+              echo "Error: TF_VAR_location is not set"
+              exit 1
+          fi
+          if [ -z "$TF_VAR_tenant_shortname" ]; then
+              echo "Error: TF_VAR_tenant_shortname is not set"
+              exit 1
+          fi
+          
+          echo "Starting Terraform plan at $(date)"
+          
+          # Run plan and capture both output and exit code
+          set +e  # Don't exit on error
+          TF_LOG=DEBUG terraform plan -detailed-exitcode -out=tfplan > plan_output.txt 2>&1
+          PLAN_EXIT_CODE=$?
+          cat plan_output.txt
+          
+          echo "Plan completed at $(date) with exit code: $PLAN_EXIT_CODE"
+          
+          # Export the exit code for later steps
+          echo "TERRAFORM_PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
+          
+          # Only exit if there's an error (exit code 1)
+          if [ $PLAN_EXIT_CODE -eq 1 ]; then
+              echo "Terraform plan failed"
+              exit 1
+          fi
+        
+      - name: 'Terraform Apply'
+        working-directory: ./terraform
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Plan exit code was: $TERRAFORM_PLAN_EXIT_CODE"
+          if [ -f tfplan ] && [ "$TERRAFORM_PLAN_EXIT_CODE" -eq 2 ]; then
+              echo "Changes detected, applying..."
+              terraform apply -auto-approve tfplan
+          elif [ "$TERRAFORM_PLAN_EXIT_CODE" -eq 0 ]; then
+              echo "No changes to apply, skipping..."
+          else
+              echo "Unexpected plan exit code: $TERRAFORM_PLAN_EXIT_CODE"
+              exit 1
+          fi
+        env:
+          TERRAFORM_PLAN_EXIT_CODE: ${{ env.TERRAFORM_PLAN_EXIT_CODE }}
+
+      - name: 'Verify State'
+        working-directory: ./terraform
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          echo "Verifying state file creation..."
+          terraform state list
