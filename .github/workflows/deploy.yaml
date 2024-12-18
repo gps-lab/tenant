@@ -70,13 +70,6 @@ jobs:
           echo "Final terraform directory contents:"
           ls -la
 
-      - name: 'Verify State'
-        working-directory: ./terraform
-        if: success() && github.ref == 'refs/heads/main'
-        run: |
-            echo "Verifying state file creation..."
-            terraform state list
-
       - name: 'Terraform Init'
         working-directory: ./terraform
         run: terraform init
@@ -84,50 +77,49 @@ jobs:
       - name: 'Terraform Format Check'
         working-directory: ./terraform
         run: |
-            # Run format check
-            terraform fmt -check
-            if [ $? -eq 0 ]; then
-              echo "Formatting check passed"
-            else
-              echo "Formatting issues found"
-              exit 1
-            fi
+          terraform fmt -check
+          if [ $? -eq 0 ]; then
+            echo "Formatting check passed"
+          else
+            echo "Formatting issues found"
+            exit 1
+          fi
       
       - name: 'Terraform Plan'
+        id: plan
         working-directory: ./terraform
         run: |
           echo "Starting Terraform plan at $(date)"
           
           # Run plan with detailed exit code
-          # Exit codes: 0=no changes, 1=error, 2=changes present
-          set +e  # Prevent the script from exiting immediately if terraform exits with 2
+          set +e
           terraform plan -detailed-exitcode -out=tfplan
           PLAN_EXIT_CODE=$?
           set -e
           
-          echo "PLAN_EXIT_CODE=$PLAN_EXIT_CODE"
+          echo "Plan exit code: $PLAN_EXIT_CODE"
           
+          # Save the exit code to use in conditional steps
+          echo "exit_code=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Exit if there's an error
           if [ $PLAN_EXIT_CODE -eq 1 ]; then
-              echo "Terraform plan failed"
-              exit 1
-          fi
-          
-          # Explicitly set the env var based on exit code
-          if [ $PLAN_EXIT_CODE -eq 2 ]; then
-              echo "PLAN_HAS_CHANGES=true" >> $GITHUB_ENV
-          else
-              echo "PLAN_HAS_CHANGES=false" >> $GITHUB_ENV
+            echo "Terraform plan failed"
+            exit 1
           fi
 
       - name: 'Terraform Apply'
+        if: |
+          github.ref == 'refs/heads/main' && 
+          steps.plan.outputs.exit_code == '2'
         working-directory: ./terraform
-        if: github.ref == 'refs/heads/main'
         run: |
-          echo "Plan has changes: ${{ env.PLAN_HAS_CHANGES }}"
-          
-          if [ "${{ env.PLAN_HAS_CHANGES }}" = "true" ]; then
-              echo "Changes detected, applying..."
-              terraform apply -auto-approve tfplan
-          else
-              echo "No changes to apply"
-          fi
+          echo "Changes detected, applying..."
+          terraform apply -auto-approve tfplan
+
+      - name: 'Verify State'
+        working-directory: ./terraform
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          echo "Verifying state file creation..."
+          terraform state list
