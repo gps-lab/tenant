@@ -1,6 +1,6 @@
 # Create a resource group
 resource "azurerm_resource_group" "rg" {
-  name     = "tn0e-dev-eastus-management"
+  name     = "${var.tenant_shortname}-dev-${var.location}-management"
   location = var.location
 
   tags = {
