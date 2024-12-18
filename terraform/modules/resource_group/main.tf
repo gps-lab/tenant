@@ -1,12 +1,29 @@
-# Create a resource group
-resource "azurerm_resource_group" "rg" {
-  name     = "${var.tenant_shortname}-dev-${var.location}-management"
-  location = var.location
+# # Create a resource group
+# resource "azurerm_resource_group" "rg" {
+#   name     = "${var.tenant_shortname}-dev-${var.location}-management"
+#   location = var.location
 
+#   tags = {
+#     Environment = "Development"
+#     Project     = "Hello World"
+#     CreatedBy   = "Terraform"
+#     ManagedBy   = "GitHub Actions"
+#   }
+# }
+
+locals {
+  environment        = "dev"
+  resource_group_name = "${var.tenant_shortname}-${local.environment}-${var.location}-management"
   tags = {
     Environment = "Development"
-    Project     = "Hello World"
     CreatedBy   = "Terraform"
     ManagedBy   = "GitHub Actions"
+    Project     = "Hello World"
   }
+}
+
+resource "azurerm_resource_group" "rg" {
+  name     = local.resource_group_name
+  location = var.location
+  tags     = local.tags
 }
