@@ -111,12 +111,7 @@ jobs:
     
       - name: 'Terraform Apply'
         working-directory: ./terraform
-<<<<<<< HEAD
-        if: github.ref == 'refs/heads/main' && env.TERRAFORM_PLAN_EXIT_CODE == 2
-        #if: github.ref == 'refs/heads/main' && (env.TERRAFORM_PLAN_EXIT_CODE == 2 || env.TERRAFORM_PLAN_EXIT_CODE == 0)
-=======
         if: github.ref == 'refs/heads/main' && (env.TERRAFORM_PLAN_EXIT_CODE == 2 || env.TERRAFORM_PLAN_EXIT_CODE == 0)
->>>>>>> 4212acace842711ac66273cf75f6ddc2531c6cad
         run: |
             echo "Applying changes"
             terraform apply -auto-approve tfplan
