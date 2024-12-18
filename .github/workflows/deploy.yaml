@@ -99,23 +99,40 @@ jobs:
           
           echo "Plan exit code: $PLAN_EXIT_CODE"
           
-          # Save the exit code to use in conditional steps
-          echo "exit_code=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
-          
-          # Exit if there's an error
-          if [ $PLAN_EXIT_CODE -eq 1 ]; then
+          # More verbose output for debugging
+          if [ $PLAN_EXIT_CODE -eq 0 ]; then
+            echo "No changes detected"
+          elif [ $PLAN_EXIT_CODE -eq 1 ]; then
             echo "Terraform plan failed"
             exit 1
+          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+            echo "Changes detected"
           fi
+          
+          # Set output with more debugging
+          echo "Setting output: exit_code=$PLAN_EXIT_CODE"
+          echo "exit_code=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          # Also set environment variable as backup
+          echo "PLAN_EXIT_CODE=$PLAN_EXIT_CODE" >> $GITHUB_ENV
 
       - name: 'Terraform Apply'
         if: |
           github.ref == 'refs/heads/main' && 
-          steps.plan.outputs.exit_code == '2'
+          (steps.plan.outputs.exit_code == '2' || env.PLAN_EXIT_CODE == '2')
         working-directory: ./terraform
         run: |
-          echo "Changes detected, applying..."
-          terraform apply -auto-approve tfplan
+          echo "Debug: Current branch is ${{ github.ref }}"
+          echo "Debug: Plan exit code from output is ${{ steps.plan.outputs.exit_code }}"
+          echo "Debug: Plan exit code from env is ${{ env.PLAN_EXIT_CODE }}"
+          
+          if [ -f tfplan ]; then
+            echo "Changes detected, applying..."
+            terraform apply -auto-approve tfplan
+          else
+            echo "No plan file found!"
+            exit 1
+          fi
 
       - name: 'Verify State'
         working-directory: ./terraform
