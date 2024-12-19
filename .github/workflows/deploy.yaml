@@ -1,135 +1,162 @@
 name: deploy pipeline
 
 on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+ push:
+   branches:
+     - '**'  # This will run on all branches
+ workflow_dispatch:
 
 permissions:
-  id-token: write
-  contents: read
-  actions: read
+ id-token: write
+ contents: read
+ actions: read
 
 jobs:
-  setup-terraform-state:
-    runs-on: ubuntu-latest
-    environment: tenant00
-    env:
-      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-      TF_VAR_location: ${{ vars.LOCATION }}
-      TF_VAR_tenant_shortname: ${{ vars.TENANT_SHORTNAME }}
-      TF_VAR_env: ${{ vars.ENVIRONMENT }}
+ setup-terraform-state:
+   runs-on: ubuntu-latest
+   environment: tenant00
+   env:
+     ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+     ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+     ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+     ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+     TF_VAR_location: ${{ vars.LOCATION }}
+     TF_VAR_tenant_shortname: ${{ vars.TENANT_SHORTNAME }}
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        
-      - name: Azure Login
-        if: success()
-        uses: azure/login@v1
-        with:
-          creds: '{"clientId":"${{ vars.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ vars.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ vars.AZURE_TENANT_ID }}"}'
-      
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: '1.7.0'
-    
-      - name: Create and Format Backend Configuration
-        run: |
-          # Debug: Show initial directory structure
-          echo "Current directory structure:"
-          pwd
-          ls -R
-          
-          # Create terraform directory if it doesn't exist
-          mkdir -p terraform
-          
-          # Copy all files from the modules directory
-          cp -r ./terraform/modules/resource_group/* terraform/
-          
-          # Create backend.tf in the terraform directory
-          cat > terraform/backend.tf << 'EOF'
-          terraform {
-            backend "azurerm" {
-              resource_group_name  = "terraform-state-rg"
-              storage_account_name = "tfstatemftfb413"
-              container_name      = "tfstate"
-              key                 = "terraform.tfstate"
-            }
-          }
-          EOF
-          
-          # Format the files
-          cd terraform
-          terraform fmt
-          
-          # Debug: Show final contents
-          echo "Final terraform directory contents:"
-          ls -la
+   steps:
+     - name: Checkout repository
+       uses: actions/checkout@v4
+       
+     - name: Azure Login
+       if: success()
+       uses: azure/login@v1
+       with:
+         creds: '{"clientId":"${{ vars.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ vars.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ vars.AZURE_TENANT_ID }}"}'
+     
+     - name: Setup Terraform
+       uses: hashicorp/setup-terraform@v3
+       with:
+         terraform_version: '1.7.0'
+   
+     - name: Create and Format Backend Configuration
+       run: |
+         # Debug: Show initial directory structure
+         echo "Current directory structure:"
+         pwd
+         ls -R
+         
+         # Create terraform directory if it doesn't exist
+         mkdir -p terraform
+         
+         # Copy all files from the modules directory
+         cp -r ./terraform/modules/resource_group/* terraform/
+         
+         # Create backend.tf in the terraform directory
+         cat > terraform/backend.tf << 'EOF'
+         terraform {
+           backend "azurerm" {
+             resource_group_name  = "terraform-state-rg"
+             storage_account_name = "tfstatemftfb413"
+             container_name      = "tfstate"
+             key                 = "terraform.tfstate"
+           }
+         }
+         EOF
+         
+         # Format the files
+         cd terraform
+         terraform fmt
+         
+         # Debug: Show final contents
+         echo "Final terraform directory contents:"
+         ls -la
 
-      - name: 'Terraform Init'
-        working-directory: ./terraform
-        run: terraform init
-    
-      - name: 'Terraform Format Check'
-        working-directory: ./terraform
-        run: |
-          terraform fmt -check
-          if [ $? -eq 0 ]; then
-            echo "Formatting check passed"
-          else
-            echo "Formatting issues found"
-            exit 1
-          fi
-      
-      - name: 'Terraform Plan'
-        id: plan
-        working-directory: ./terraform
-        run: |
-          echo "Starting Terraform plan at $(date)"
-          
-          # Run plan and capture output
-          terraform plan -out=tfplan | tee plan_output.txt
-          
-          # More robust change detection that matches actual output format
-          if grep -q "Plan: 1 to add, 0 to change, 0 to destroy" plan_output.txt || \
-             grep -q "Plan: .* to add" plan_output.txt || \
-             grep -q "Plan: .* to change" plan_output.txt || \
-             grep -q "Plan: .* to destroy" plan_output.txt; then
-            echo "Changes detected in plan"
-            echo "::set-output name=changes::true"
-            echo "CHANGES_DETECTED=true" >> $GITHUB_ENV
-          else
-            echo "No changes detected in plan"
-            echo "::set-output name=changes::false"
-            echo "CHANGES_DETECTED=false" >> $GITHUB_ENV
-          fi
-          
-          # Debug output
-          echo "Plan output contains:"
-          cat plan_output.txt
+     - name: 'Terraform Init'
+       working-directory: ./terraform
+       run: terraform init
+   
+     - name: 'Terraform Format Check'
+       working-directory: ./terraform
+       run: |
+         terraform fmt -check
+         if [ $? -eq 0 ]; then
+           echo "Formatting check passed"
+         else
+           echo "Formatting issues found"
+           exit 1
+         fi
+     
+     - name: 'Terraform Plan'
+       id: plan
+       working-directory: ./terraform
+       run: |
+         echo "Starting Terraform plan at $(date)"
+         
+         # Run plan and capture output
+         echo "Running terraform plan..."
+         terraform plan -out=tfplan | tee plan_output.txt
+         
+         echo "-------------------------"
+         echo "DEBUG: Showing plan_output.txt contents:"
+         cat plan_output.txt
+         echo "-------------------------"
+         
+         echo "DEBUG: Searching for specific patterns..."
+         
+         # Check each pattern separately for debugging
+         if grep -q "Plan: 1 to add" plan_output.txt; then
+           echo "DEBUG: Found 'Plan: 1 to add' pattern"
+           CHANGES_FOUND="true"
+         elif grep -q "Plan: .* to add" plan_output.txt; then
+           echo "DEBUG: Found 'Plan: .* to add' pattern"
+           CHANGES_FOUND="true"
+         elif grep -q "Plan: .* to change" plan_output.txt; then
+           echo "DEBUG: Found 'Plan: .* to change' pattern"
+           CHANGES_FOUND="true"
+         elif grep -q "Plan: .* to destroy" plan_output.txt; then
+           echo "DEBUG: Found 'Plan: .* to destroy' pattern"
+           CHANGES_FOUND="true"
+         else
+           echo "DEBUG: No matching patterns found"
+           CHANGES_FOUND="false"
+         fi
+         
+         echo "DEBUG: CHANGES_FOUND=$CHANGES_FOUND"
+         
+         # Save the plan summary
+         grep "Plan: " plan_output.txt > plan_changes.txt || true
 
-      - name: 'Terraform Apply'
-        if: github.ref == 'refs/heads/main'
-        working-directory: ./terraform
-        run: |
-          echo "Debug: Current branch is ${{ github.ref }}"
-          
-          # Check plan content instead of relying on environment variables
-          if [ -f plan_output.txt ] && grep -q "Plan: .* to add\|to change\|to destroy" plan_output.txt; then
-            echo "Changes found in plan, applying..."
-            terraform apply -auto-approve tfplan
-          else
-            echo "No changes to apply"
-          fi
+     - name: 'Terraform Apply'
+       if: github.ref == 'refs/heads/main'
+       working-directory: ./terraform
+       run: |
+         echo "DEBUG: Starting Apply step"
+         echo "DEBUG: Current branch is ${{ github.ref }}"
+         
+         echo "DEBUG: Contents of plan_changes.txt:"
+         cat plan_changes.txt || echo "plan_changes.txt not found"
+         
+         echo "DEBUG: Checking plan_output.txt:"
+         cat plan_output.txt || echo "plan_output.txt not found"
+         
+         if [ -f tfplan ]; then
+           echo "DEBUG: tfplan file exists"
+           if grep -q "Plan: .* to add\|to change\|to destroy" plan_output.txt; then
+             echo "DEBUG: Changes found in plan_output.txt"
+             echo "Changes found in plan, applying..."
+             terraform apply -auto-approve tfplan
+           else
+             echo "DEBUG: No changes found in pattern matching"
+             echo "No changes to apply"
+           fi
+         else
+           echo "DEBUG: tfplan file not found!"
+           exit 1
+         fi
 
-      - name: 'Verify State'
-        working-directory: ./terraform
-        if: success() && github.ref == 'refs/heads/main'
-        run: |
-          echo "Verifying state file creation..."
-          terraform state list
+     - name: 'Verify State'
+       working-directory: ./terraform
+       if: success() && github.ref == 'refs/heads/main'
+       run: |
+         echo "Verifying state file creation..."
+         terraform state list
