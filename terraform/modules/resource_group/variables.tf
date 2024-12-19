@@ -7,3 +7,8 @@ variable "tenant_shortname" {
   type        = string
   description = "tenant shortname for resource naming standard"
 }
+
+variable "environment" {
+  type        = string
+  description = "tenant shortname for resource naming standard"
+}

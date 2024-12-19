@@ -22,6 +22,7 @@ jobs:
      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
      TF_VAR_location: ${{ vars.LOCATION }}
      TF_VAR_tenant_shortname: ${{ vars.TENANT_SHORTNAME }}
+     TF_VAR_environment: ${{ vars.ENVIRONMENT }}
 
    steps:
      - name: Checkout repository
@@ -160,4 +161,3 @@ jobs:
        run: |
          echo "Verifying state file creation..."
          terraform state list
-         
