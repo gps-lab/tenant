@@ -2,10 +2,9 @@ locals {
   environment        = "dev"
   resource_group_name = "${var.tenant_shortname}-${local.environment}-${var.location}-management"
   tags = {
-    Environment = "Development"
+    Environment = var.environment
     CreatedBy   = "Terraform"
     ManagedBy   = "GitHub Actions"
-    Project     = "Hello World"
   }
 }
 
